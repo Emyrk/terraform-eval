@@ -44,7 +44,12 @@ func ParameterContexts(modules terraform.Modules) error {
 			// get the default value
 			v, err := evaluateCoderParameterDefault(block)
 			if err != nil {
-				return fmt.Errorf("evaluate coder_parameter %q: %w", block.Label(), err)
+				// TODO: We should return the parameters without values so the
+				// caller can throw an error if they want all parameters to have a value.
+				// When doing workspace tags for example, a param might not be
+				// required.
+				//return fmt.Errorf("evaluate coder_parameter %q: %w", block.Label(), err)
+				continue
 			}
 
 			// Set the default value as the 'value' attribute
