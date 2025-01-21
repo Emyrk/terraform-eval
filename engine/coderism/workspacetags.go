@@ -22,7 +22,6 @@ func (t Tags) ValidTags() (map[string]string, error) {
 
 		str, err := CtyValueString(tag.raw)
 		if err != nil {
-			// TODO: Raise this error somewhere
 			errs = append(errs, fmt.Errorf("convert tag %q: %w", k, err))
 			continue
 		}
