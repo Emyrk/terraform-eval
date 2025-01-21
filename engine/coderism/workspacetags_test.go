@@ -543,6 +543,42 @@ func Test_WorkspaceTags(t *testing.T) {
 			},
 			expectTags: map[string]string{"foo": "bar", "a": "1"},
 		},
+		{
+			name: "overlapping var name",
+			files: map[string]string{
+				`main.tf`: `
+				variable "regions" {
+				  type    = set(string)
+				  default = ["us", "au", "eu"]
+				}
+				
+				data "coder_parameter" "region" {
+				  name        = "Region"
+				  description = "Which region would you like to deploy to?"
+				  type        = "string"
+				  default     = sort(tolist(var.regions))[0]
+				
+				
+				  # option = var.region_options
+				  dynamic "option" {
+					for_each = var.regions
+					content {
+					  name  = option.value
+					  value = option.value
+					}
+				  }
+				}
+				
+				
+				data "coder_workspace_tags" "custom_workspace_tags" {
+				  tags = {
+					"zone" = data.coder_parameter.region.value
+				  }
+				}
+`,
+			},
+			expectTags: map[string]string{"zone": "au"},
+		},
 	} {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
