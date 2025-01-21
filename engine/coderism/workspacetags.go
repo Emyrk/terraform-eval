@@ -54,10 +54,8 @@ func WorkspaceTags(modules terraform.Modules) (Tags, error) {
 		blocks := module.GetDatasByType("coder_workspace_tags")
 		for _, block := range blocks {
 			tags := block.GetAttribute("tags")
-			if tags.IsEmpty() {
-				// TODO: Throw a warning up about a custom_workspace_tags block that is missing
-				// 	the tags attribute.
-				continue
+			if tags.IsNil() {
+				return nil, errors.New(`"tags" attribute is required by coder_workspace_tags`)
 			}
 
 			err := tags.Each(func(key cty.Value, val cty.Value) {

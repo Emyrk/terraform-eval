@@ -545,7 +545,7 @@ func Test_WorkspaceTags(t *testing.T) {
 		},
 	} {
 		tc := tc
-		t.Run(tc.name+"/tar", func(t *testing.T) {
+		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
 			memfs := afero.NewMemMapFs()
