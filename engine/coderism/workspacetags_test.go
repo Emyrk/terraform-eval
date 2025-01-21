@@ -14,10 +14,11 @@ func Test_WorkspaceTags(t *testing.T) {
 	t.Parallel()
 
 	for _, tc := range []struct {
-		name        string
-		files       map[string]string
-		expectTags  map[string]string
-		expectError string
+		name           string
+		files          map[string]string
+		expectTags     map[string]string
+		expectUnknowns []string
+		expectError    string
 	}{
 		{
 			name:        "empty",
@@ -579,6 +580,26 @@ func Test_WorkspaceTags(t *testing.T) {
 			},
 			expectTags: map[string]string{"zone": "au"},
 		},
+		{
+			name: "external data source",
+			files: map[string]string{
+				`main.tf`: `
+				data "coder_workspace_tags" "custom_workspace_tags" {
+				  tags = {
+					"zone" = docker_image.ubuntu.repo_digest
+				  }
+				}
+				
+				
+				# Pulls the image
+				resource "docker_image" "ubuntu" {
+				  name = "ubuntu:latest"
+				}
+`,
+			},
+			expectUnknowns: []string{"zone"},
+			expectTags:     map[string]string{},
+		},
 	} {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
@@ -604,7 +625,7 @@ func Test_WorkspaceTags(t *testing.T) {
 			require.NoError(t, err)
 			unknowns := output.WorkspaceTags.Unknowns()
 
-			require.Len(t, unknowns, 0)
+			require.ElementsMatchf(t, tc.expectUnknowns, unknowns, "unknown tags")
 			require.Equal(t, tc.expectTags, valid)
 		})
 	}
