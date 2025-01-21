@@ -544,7 +544,7 @@ func Test_WorkspaceTags(t *testing.T) {
 			expectTags: map[string]string{"foo": "bar", "a": "1"},
 		},
 		{
-			name: "overlapping var name",
+			name: "dynamic parameter options",
 			files: map[string]string{
 				`main.tf`: `
 				variable "regions" {
