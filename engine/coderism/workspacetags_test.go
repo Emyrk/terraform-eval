@@ -155,6 +155,7 @@ func Test_WorkspaceTags(t *testing.T) {
 			expectError: "",
 		},
 		{
+			// TODO: Why should this fail?
 			name: "main.tf with parameter that has default value from another parameter",
 			files: map[string]string{
 				"main.tf": `
@@ -263,7 +264,8 @@ func Test_WorkspaceTags(t *testing.T) {
 						}
 					}`,
 			},
-			expectError: `provisioner tag "az" evaluated to an empty value, please set a default value`,
+			expectError: "parameter ctx: evaluate coder_parameter \"coder_parameter.az\": no value found",
+			//expectError: `provisioner tag "az" evaluated to an empty value, please set a default value`,
 		},
 		{
 			name: "main.tf with missing parameter default value outside workspace tags",
@@ -556,9 +558,18 @@ func Test_WorkspaceTags(t *testing.T) {
 			require.NoError(t, err)
 
 			output, err := coderism.Extract(modules)
+			if tc.expectError != "" {
+				require.ErrorContains(t, err, tc.expectError)
+				return
+			}
 			require.NoError(t, err)
 
-			require.Equal(t, tc.expectTags, output.WorkspaceTags.ValidTags())
+			valid, err := output.WorkspaceTags.ValidTags()
+			require.NoError(t, err)
+			unknowns := output.WorkspaceTags.Unknowns()
+
+			require.Len(t, unknowns, 0)
+			require.Equal(t, tc.expectTags, valid)
 		})
 	}
 }

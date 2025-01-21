@@ -1,7 +1,9 @@
 package coderism
 
 import (
+	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/zclconf/go-cty/cty"
 )
@@ -10,6 +12,32 @@ import (
 // It supports only primitive types - bool, number, and string.
 // As a special case, it also supports map[string]interface{} with key "value".
 func CtyValueString(val cty.Value) (string, error) {
+	switch {
+	case val.Type().IsListType():
+		vals := val.AsValueSlice()
+		strs := make([]string, 0, len(vals))
+		for _, ele := range vals {
+			str, err := CtyValueString(ele)
+			if err != nil {
+				return "", err
+			}
+			strs = append(strs, fmt.Sprintf("%q", str))
+		}
+		return fmt.Sprintf(`[%s]`, strings.Join(strs, ",")), nil
+	case val.Type().IsMapType():
+		output := make(map[string]string)
+		for k, v := range val.AsValueMap() {
+			str, err := CtyValueString(v)
+			if err != nil {
+				return "", err
+			}
+			output[k] = str
+		}
+
+		d, _ := json.Marshal(output)
+		return string(d), nil
+	}
+
 	switch val.Type() {
 	case cty.Bool:
 		if val.True() {

@@ -1,6 +1,7 @@
 package coderism
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/aquasecurity/defsec/pkg/terraform"
@@ -11,7 +12,8 @@ type Tags map[string]Tag
 
 // ValidTags returns the valid set of 'key=value' tags that are valid.
 // Valid tags require that the value is statically known.
-func (t Tags) ValidTags() map[string]string {
+func (t Tags) ValidTags() (map[string]string, error) {
+	var errs []error
 	known := make(map[string]string)
 	for k, tag := range t {
 		if !tag.raw.IsWhollyKnown() {
@@ -21,11 +23,12 @@ func (t Tags) ValidTags() map[string]string {
 		str, err := CtyValueString(tag.raw)
 		if err != nil {
 			// TODO: Raise this error somewhere
+			errs = append(errs, fmt.Errorf("convert tag %q: %w", k, err))
 			continue
 		}
 		known[k] = str
 	}
-	return known
+	return known, errors.Join(errs...)
 }
 
 // Unknowns returns the list of tags that cannot be resolved due to an unknown
@@ -50,36 +53,6 @@ func WorkspaceTags(modules terraform.Modules) (Tags, error) {
 	for _, module := range modules {
 		blocks := module.GetDatasByType("coder_workspace_tags")
 		for _, block := range blocks {
-			//cc := block.Context()
-			//var _ = cc
-			// TODO: Set the var in the hcl context, not the terraform context
-			//ctx := block.Context().Inner()
-			//ctx.Variables = map[string]cty.Value{
-			//	"data": cty.ObjectVal(map[string]cty.Value{
-			//		"coder_parameter": cty.ObjectVal(map[string]cty.Value{
-			//			"az": cty.ObjectVal(map[string]cty.Value{
-			//				"value": cty.StringVal("a"),
-			//			}),
-			//		}),
-			//	}),
-			//}
-
-			//block.OverrideContext(ctx)
-			//block.Context().
-			//block.OverrideContext(tfcontext.NewContext(&hcl.EvalContext{}, ctx))
-
-			//block.OverrideContext(tfcontext.NewContext(&hcl.EvalContext{
-			//	Variables: map[string]cty.Value{
-			//		"data": cty.ObjectVal(map[string]cty.Value{
-			//			"coder_parameter": cty.ObjectVal(map[string]cty.Value{
-			//				"az": cty.ObjectVal(map[string]cty.Value{
-			//					"value": cty.StringVal("a"),
-			//				}),
-			//			}),
-			//		}),
-			//	},
-			//	Functions: nil,
-			//}, block.Context()))
 			tags := block.GetAttribute("tags")
 			if tags.IsEmpty() {
 				// TODO: Throw a warning up about a custom_workspace_tags block that is missing
