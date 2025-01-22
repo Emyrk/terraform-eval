@@ -12,6 +12,7 @@ import (
 
 	"github.com/coder/terraform-eval/engine"
 	"github.com/coder/terraform-eval/engine/coderism"
+	"github.com/coder/terraform-eval/engine/coderism/proto"
 )
 
 //go:embed testdata
@@ -21,8 +22,9 @@ func Test_Extract(t *testing.T) {
 	t.Parallel()
 
 	for _, tc := range []struct {
-		name string
-		dir  string
+		name  string
+		dir   string
+		input coderism.Input
 
 		expTags     map[string]string
 		expUnknowns []string
@@ -37,6 +39,26 @@ func Test_Extract(t *testing.T) {
 			expUnknowns: []string{},
 			params: map[string]func(t *testing.T, parameter coderism.Parameter){
 				"Region": ap[cty.Value]().value(cty.StringVal("us")).f(),
+			},
+		},
+		{
+			name: "tags from param values",
+			dir:  "paramtags",
+			expTags: map[string]string{
+				"zone": "eu",
+			},
+			input: coderism.Input{
+				ParameterValues: []*proto.RichParameterValue{
+					{
+						// Why do we index by the attribute name? not the hcl name?
+						Name:  "Region",
+						Value: "eu",
+					},
+				},
+			},
+			expUnknowns: []string{},
+			params: map[string]func(t *testing.T, parameter coderism.Parameter){
+				"Region": ap[cty.Value]().value(cty.StringVal("eu")).f(),
 			},
 		},
 	} {
@@ -55,7 +77,7 @@ func Test_Extract(t *testing.T) {
 			modules, _, err := engine.ParseTerraform(dirFs)
 			require.NoError(t, err)
 
-			output, err := coderism.Extract(modules, coderism.Input{})
+			output, err := coderism.Extract(modules, tc.input)
 			require.NoError(t, err)
 
 			// Assert tags
