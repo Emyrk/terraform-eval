@@ -60,6 +60,28 @@ func Test_Extract(t *testing.T) {
 				"Region": ap[cty.Value]().value(cty.StringVal("eu")).f(),
 			},
 		},
+		{
+			name: "dynamic block",
+			dir:  "dynamicblock",
+			expTags: map[string]string{
+				"zone": "eu",
+			},
+			input: coderism.Input{
+				ParameterValues: []*proto.RichParameterValue{
+					{
+						Name:  "region",
+						Value: "eu",
+					},
+				},
+			},
+			expUnknowns: []string{},
+			params: map[string]func(t *testing.T, parameter coderism.Parameter){
+				"Region": ap[cty.Value]().
+					value(cty.StringVal("eu")).
+					options("us", "eu", "au").
+					f(),
+			},
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
@@ -106,6 +128,19 @@ func ap[T any]() *assertParam[T] {
 
 func (a *assertParam[T]) f() func(t *testing.T, parameter coderism.Parameter) {
 	return *a
+}
+
+func (a *assertParam[T]) options(opts ...string) *assertParam[T] {
+	cpy := *a
+	x := assertParam[T](func(t *testing.T, parameter coderism.Parameter) {
+		allOpts := make([]string, 0)
+		for _, opt := range parameter.Data.Options {
+			allOpts = append(allOpts, opt.Value)
+		}
+		assert.ElementsMatch(t, opts, allOpts)
+		cpy(t, parameter)
+	})
+	return &x
 }
 
 func (a *assertParam[T]) value(v T) *assertParam[T] {

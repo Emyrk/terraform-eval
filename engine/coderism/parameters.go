@@ -2,6 +2,7 @@ package coderism
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/aquasecurity/trivy/pkg/iac/terraform"
 	"github.com/hashicorp/hcl/v2"
@@ -27,11 +28,23 @@ func RichParameters(modules terraform.Modules) ([]Parameter, error) {
 			p := newAttributeParser(block)
 
 			// Find the value of the parameter from the context.
-			path := append([]string{"data"}, block.Labels()...)
-			ref := scopeTraversalExpr(append(path, "value")...)
-			paramValue, diag := ref.Value(block.Context().Inner())
+			paramPath := append([]string{"data"}, block.Labels()...)
+			valueRef := scopeTraversalExpr(append(paramPath, "value")...)
+			paramValue, diag := valueRef.Value(block.Context().Inner())
 			if diag != nil && diag.HasErrors() {
 				return nil, errors.Join(diag.Errs()...)
+			}
+
+			var paramOptions []*proto.RichParameterOption
+			optionBlocks := block.GetBlocks("option")
+			for _, optionBlock := range optionBlocks {
+				option, err := paramOption(optionBlock)
+				if err != nil {
+					// Add the error and continue
+					p.errors = append(p.errors, fmt.Errorf("param option: %w", err))
+					continue
+				}
+				paramOptions = append(paramOptions, option)
 			}
 
 			param := Parameter{
@@ -43,7 +56,7 @@ func RichParameters(modules terraform.Modules) ([]Parameter, error) {
 					Mutable:             p.attr("mutable").bool(),
 					DefaultValue:        "",
 					Icon:                p.attr("icon").string(),
-					Options:             nil,
+					Options:             paramOptions,
 					ValidationRegex:     "",
 					ValidationError:     "",
 					ValidationMin:       nil,
@@ -64,6 +77,17 @@ func RichParameters(modules terraform.Modules) ([]Parameter, error) {
 		}
 	}
 	return params, nil
+}
+
+func paramOption(block *terraform.Block) (*proto.RichParameterOption, error) {
+	p := newAttributeParser(block)
+	return &proto.RichParameterOption{
+		Name:        p.attr("name").required().string(),
+		Description: p.attr("description").string(),
+		// Does it need to be a string?
+		Value: p.attr("value").required().string(),
+		Icon:  p.attr("icon").string(),
+	}, p.error()
 }
 
 func scopeTraversalExpr(parts ...string) hclsyntax.ScopeTraversalExpr {

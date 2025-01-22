@@ -21,10 +21,7 @@ data "coder_parameter" "region" {
   description = "Which region would you like to deploy to?"
   type        = "string"
   default     = "us"
-  x = data.coder_parameter.region
 
-
-  # option = var.region_options
   option {
     name  = "Europe"
     value = "eu"
