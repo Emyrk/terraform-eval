@@ -25,6 +25,7 @@ data "coder_parameter" "region" {
   option {
     name  = "Europe"
     value = "eu"
+    description = ""
   }
   option {
     name  = "United States"

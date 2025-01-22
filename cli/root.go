@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/coder/serpent"
+	"github.com/coder/terraform-eval/cli/clidisplay"
 	"github.com/coder/terraform-eval/engine"
 	"github.com/coder/terraform-eval/engine/coderism"
 )
@@ -23,10 +24,12 @@ func Root() *serpent.Command {
 				Flag:          "dir",
 				FlagShorthand: "d",
 				Default:       ".",
+				Value:         serpent.StringOf(&dir),
 			},
 		},
 		Handler: func(i *serpent.Invocation) error {
 			dfs := os.DirFS(dir)
+
 			modules, _, err := engine.ParseTerraform(dfs)
 			if err != nil {
 				return fmt.Errorf("parse tf: %w", err)
@@ -38,7 +41,15 @@ func Root() *serpent.Command {
 				return fmt.Errorf("extract: %w", err)
 			}
 
-			var _ = output
+			err = clidisplay.WorkspaceTags(os.Stdout, output.WorkspaceTags)
+			if err != nil {
+				return fmt.Errorf("display params: %w", err)
+			}
+
+			err = clidisplay.Parameters(os.Stdout, output.Parameters)
+			if err != nil {
+				return fmt.Errorf("display params: %w", err)
+			}
 
 			return nil
 		},

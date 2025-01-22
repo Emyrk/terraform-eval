@@ -20,6 +20,10 @@ type Parameter struct {
 	block *terraform.Block
 }
 
+func (p Parameter) ValueAsString() (string, error) {
+	return CtyValueString(p.Value)
+}
+
 func RichParameters(modules terraform.Modules) ([]Parameter, error) {
 	params := make([]Parameter, 0)
 	for _, module := range modules {
