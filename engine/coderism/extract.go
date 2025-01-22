@@ -52,11 +52,13 @@ func Extract(modules terraform.Modules, input Input) (Output, error) {
 	}, nil
 }
 
-// ParameterContexts applies the "default" value to parameters if no "value"
-// attribute is set.
-// TODO: Pass in parameter selections by the user to override the value if
-// they choose.
-// TODO: This should happen in the `evaluateStep` block of the evaluator
+// ParameterContexts handles applying coder parameters to the evaluation context.
+// We do this instead of modifying the original modules to match the behavior
+// of how 'default' value 'vars' are handled.
+//
+// Parameter values first come from the inputs, and then the 'defaults'.
+// TODO: This should be done in the evaluateStep in a loop, but that would
+// require forking. This might need to be done in a loop??
 func ParameterContexts(modules terraform.Modules, input Input) error {
 	for _, module := range modules {
 		parameterBlocks := module.GetDatasByType("coder_parameter")
@@ -126,7 +128,6 @@ func evaluateCoderParameterDefault(b *terraform.Block) (cty.Value, error) {
 
 	var val cty.Value
 
-	// TODO: Potentially source from user inputs
 	if def, exists := attributes["default"]; exists {
 		val = def.NullableValue()
 	} else {
