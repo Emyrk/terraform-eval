@@ -5,14 +5,10 @@ import (
 	"fmt"
 	"io/fs"
 
-	"github.com/aquasecurity/defsec/pkg/terraform"
-	"github.com/aquasecurity/trivy-iac/pkg/scanners/terraform/executor"
-	"github.com/aquasecurity/trivy-iac/pkg/scanners/terraform/parser"
+	"github.com/aquasecurity/trivy/pkg/iac/scanners/terraform/parser"
+	"github.com/aquasecurity/trivy/pkg/iac/terraform"
 	"github.com/zclconf/go-cty/cty"
 )
-
-var _ = parser.New
-var _ = executor.OptionExcludeRules
 
 func ParseTerraform(dir fs.FS) (terraform.Modules, cty.Value, error) {
 	// moduleSource is "" for a local module

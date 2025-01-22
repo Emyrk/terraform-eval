@@ -587,6 +587,7 @@ func Test_WorkspaceTags(t *testing.T) {
 				data "coder_workspace_tags" "custom_workspace_tags" {
 				  tags = {
 					"zone" = docker_image.ubuntu.repo_digest
+					"static" = "static"
 				  }
 				}
 				
@@ -614,7 +615,7 @@ func Test_WorkspaceTags(t *testing.T) {
 			modules, _, err := engine.ParseTerraform(afero.NewIOFS(memfs))
 			require.NoError(t, err)
 
-			output, err := coderism.Extract(modules)
+			output, err := coderism.Extract(modules, coderism.Input{})
 			if tc.expectError != "" {
 				require.ErrorContains(t, err, tc.expectError)
 				return

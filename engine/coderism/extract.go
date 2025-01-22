@@ -4,18 +4,34 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/aquasecurity/defsec/pkg/terraform"
+	"github.com/aquasecurity/trivy/pkg/iac/terraform"
 	"github.com/hashicorp/hcl/v2/ext/typeexpr"
 	"github.com/zclconf/go-cty/cty"
 	"github.com/zclconf/go-cty/cty/convert"
+
+	"github.com/coder/terraform-eval/engine/coderism/proto"
 )
 
-type Output struct {
-	WorkspaceTags Tags
+type Input struct {
+	ParameterValues []*proto.RichParameterValue
 }
 
-func Extract(modules terraform.Modules) (Output, error) {
-	err := ParameterContexts(modules)
+func (i Input) RichParameterValue(key string) (*proto.RichParameterValue, bool) {
+	for _, p := range i.ParameterValues {
+		if p.Name == key {
+			return p, true
+		}
+	}
+	return nil, false
+}
+
+type Output struct {
+	WorkspaceTags TagBlocks
+	Parameters    []Parameter
+}
+
+func Extract(modules terraform.Modules, input Input) (Output, error) {
+	err := ParameterContexts(modules, input)
 	if err != nil {
 		return Output{}, fmt.Errorf("parameter ctx: %w", err)
 	}
@@ -25,13 +41,23 @@ func Extract(modules terraform.Modules) (Output, error) {
 		return Output{}, err
 	}
 
-	return Output{WorkspaceTags: tags}, nil
+	params, err := RichParameters(modules)
+	if err != nil {
+		return Output{}, err
+	}
+
+	return Output{
+		WorkspaceTags: tags,
+		Parameters:    params,
+	}, nil
 }
 
 // ParameterContexts applies the "default" value to parameters if no "value"
 // attribute is set.
+// TODO: Pass in parameter selections by the user to override the value if
+// they choose.
 // TODO: This should happen in the `evaluateStep` block of the evaluator
-func ParameterContexts(modules terraform.Modules) error {
+func ParameterContexts(modules terraform.Modules, input Input) error {
 	for _, module := range modules {
 		parameterBlocks := module.GetDatasByType("coder_parameter")
 		for _, block := range parameterBlocks {
@@ -41,15 +67,27 @@ func ParameterContexts(modules terraform.Modules) error {
 				continue
 			}
 
-			// get the default value
-			v, err := evaluateCoderParameterDefault(block)
+			// First check if the input value is set by the user
+			nameAttr := block.GetAttribute("name")
+			if nameAttr == nil {
+				return fmt.Errorf(`"name" attribute is required by %q`, block.FullName())
+			}
+			name, err := CtyValueString(nameAttr.Value())
 			if err != nil {
-				// TODO: We should return the parameters without values so the
-				// caller can throw an error if they want all parameters to have a value.
-				// When doing workspace tags for example, a param might not be
-				// required.
-				//return fmt.Errorf("evaluate coder_parameter %q: %w", block.Label(), err)
-				continue
+				return fmt.Errorf(`"name" attribute must be a string in 'coder_parameter' blocks`)
+			}
+
+			var value cty.Value
+			pv, ok := input.RichParameterValue(name)
+			if ok {
+				// TODO: Handle non-string types
+				value = cty.StringVal(pv.Value)
+			} else {
+				// get the default value
+				value, err = evaluateCoderParameterDefault(block)
+				if err != nil {
+					continue
+				}
 			}
 
 			// Set the default value as the 'value' attribute
@@ -58,7 +96,7 @@ func ParameterContexts(modules terraform.Modules) error {
 			path = append(path, "value")
 			// The current context is in the `coder_parameter` block.
 			// Use the parent context to "export" the value
-			block.Context().Parent().Set(v, path...)
+			block.Context().Parent().Set(value, path...)
 		}
 	}
 	return nil

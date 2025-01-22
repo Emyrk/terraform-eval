@@ -9,8 +9,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/coder/terraform-eval/coderism"
 	"github.com/coder/terraform-eval/engine"
+	"github.com/coder/terraform-eval/engine/coderism"
 )
 
 //go:embed testdata
