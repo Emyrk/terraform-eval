@@ -50,8 +50,7 @@ func Test_Extract(t *testing.T) {
 			input: coderism.Input{
 				ParameterValues: []*proto.RichParameterValue{
 					{
-						// Why do we index by the attribute name? not the hcl name?
-						Name:  "Region",
+						Name:  "region",
 						Value: "eu",
 					},
 				},

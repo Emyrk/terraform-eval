@@ -69,16 +69,8 @@ func ParameterContexts(modules terraform.Modules, input Input) error {
 				continue
 			}
 
-			// First check if the input value is set by the user
-			nameAttr := block.GetAttribute("name")
-			if nameAttr == nil {
-				return fmt.Errorf(`"name" attribute is required by %q`, block.FullName())
-			}
-			name, err := CtyValueString(nameAttr.Value())
-			if err != nil {
-				return fmt.Errorf(`"name" attribute must be a string in 'coder_parameter' blocks`)
-			}
-
+			name := block.NameLabel()
+			var err error
 			var value cty.Value
 			pv, ok := input.RichParameterValue(name)
 			if ok {
