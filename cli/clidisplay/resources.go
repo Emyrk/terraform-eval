@@ -16,7 +16,7 @@ func WorkspaceTags(writer io.Writer, tags coderism.TagBlocks) error {
 	tableWriter.SetTitle("Provisioner Tags")
 	tableWriter.SetStyle(table.StyleLight)
 	tableWriter.Style().Options.SeparateColumns = false
-	row := table.Row{"Key", "Value"}
+	row := table.Row{"Key", "Value", "Refs"}
 	tableWriter.AppendHeader(row)
 	for _, tb := range tags {
 		valid, err := tb.ValidTags()
@@ -24,11 +24,16 @@ func WorkspaceTags(writer io.Writer, tags coderism.TagBlocks) error {
 			return fmt.Errorf("valid tags: %w", err)
 		}
 		for k, v := range valid {
-			tableWriter.AppendRow(table.Row{k, v})
+			tableWriter.AppendRow(table.Row{k, v, ""})
 		}
 
 		for _, unknown := range tb.Unknowns() {
-			tableWriter.AppendRow(table.Row{unknown, "!UNKNOWN"})
+			refs := tb.AllReferences()
+			refsStr := make([]string, 0, len(refs))
+			for _, ref := range refs {
+				refsStr = append(refsStr, ref.String())
+			}
+			tableWriter.AppendRow(table.Row{unknown, "???", strings.Join(refsStr, "\n")})
 		}
 	}
 	_, err := fmt.Fprintln(writer, tableWriter.Render())

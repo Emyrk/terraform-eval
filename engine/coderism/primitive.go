@@ -57,6 +57,6 @@ func CtyValueString(val cty.Value) (string, error) {
 		}
 		return CtyValueString(valval)
 	default:
-		return "", fmt.Errorf("only primitive types are supported - bool, number, and string")
+		return "", fmt.Errorf("only primitive types are supported - bool, number, and string. Found %s", val.Type().GoString())
 	}
 }

@@ -71,6 +71,10 @@ type TagBlock struct {
 	block *terraform.Block
 }
 
+func (t TagBlock) AllReferences() []*terraform.Reference {
+	return t.block.GetAttribute("tags").AllReferences()
+}
+
 // ValidTags returns the valid set of 'key=value' tags that are valid.
 // Valid tags require that the value is statically known.
 func (t TagBlock) ValidTags() (map[string]string, error) {

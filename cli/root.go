@@ -8,6 +8,7 @@ import (
 	"github.com/coder/terraform-eval/cli/clidisplay"
 	"github.com/coder/terraform-eval/engine"
 	"github.com/coder/terraform-eval/engine/coderism"
+	"github.com/coder/terraform-eval/engine/coderism/proto"
 )
 
 func Root() *serpent.Command {
@@ -36,7 +37,14 @@ func Root() *serpent.Command {
 			}
 
 			// TODO: Implement the parameter cli resolver in this package
-			output, err := coderism.Extract(modules, coderism.Input{})
+			output, err := coderism.Extract(modules, coderism.Input{
+				ParameterValues: []*proto.RichParameterValue{
+					{
+						Name:  "color",
+						Value: "red",
+					},
+				},
+			})
 			if err != nil {
 				return fmt.Errorf("extract: %w", err)
 			}

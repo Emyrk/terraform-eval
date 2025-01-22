@@ -16,9 +16,7 @@ data "coder_parameter" "region" {
   description = "Which region would you like to deploy to?"
   type        = "string"
   default     = tolist(var.regions)[0]
-
-
-  # option = var.region_options
+  
   dynamic "option" {
     for_each = var.regions
     content {
