@@ -613,7 +613,7 @@ func Test_WorkspaceTags(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			modules, _, err := engine.ParseTerraform(context.Background(), afero.NewIOFS(memfs))
+			_, modules, _, err := engine.ParseTerraform(context.Background(), afero.NewIOFS(memfs))
 			require.NoError(t, err)
 
 			output, err := coderism.Extract(modules, coderism.Input{})

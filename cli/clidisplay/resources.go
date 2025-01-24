@@ -23,22 +23,26 @@ func WorkspaceTags(writer io.Writer, tags coderism.TagBlocks) hcl.Diagnostics {
 	row := table.Row{"Key", "Value", "Refs"}
 	tableWriter.AppendHeader(row)
 	for _, tb := range tags {
-		valid, tagDiags := tb.ValidTags()
-		diags = diags.Extend(tagDiags)
-		if diags.HasErrors() {
-			continue
-		}
-		for k, v := range valid {
-			tableWriter.AppendRow(table.Row{k, v, ""})
-		}
-
-		for _, unknown := range tb.Unknowns() {
-			refs := tb.AllReferences()
-			refsStr := make([]string, 0, len(refs))
-			for _, ref := range refs {
-				refsStr = append(refsStr, ref.String())
+		for _, tag := range tb.Tags {
+			if tag.IsKnown() {
+				k, v, tDiags := tag.EvalToString(tb)
+				diags = diags.Extend(tDiags)
+				if !diags.HasErrors() {
+					tableWriter.AppendRow(table.Row{k, v, ""})
+					continue
+				}
 			}
-			tableWriter.AppendRow(table.Row{unknown, "???", strings.Join(refsStr, "\n")})
+
+			k := tag.SafeKeyString()
+			refs := tag.References()
+			tableWriter.AppendRow(table.Row{k, "??", strings.Join(refs, "\n")})
+
+			//refs := tb.AllReferences()
+			//refsStr := make([]string, 0, len(refs))
+			//for _, ref := range refs {
+			//	refsStr = append(refsStr, ref.String())
+			//}
+			//tableWriter.AppendRow(table.Row{unknown, "???", strings.Join(refsStr, "\n")})
 		}
 	}
 	_, _ = fmt.Fprintln(writer, tableWriter.Render())

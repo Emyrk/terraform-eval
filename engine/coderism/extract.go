@@ -1,6 +1,8 @@
 package coderism
 
 import (
+	"fmt"
+
 	"github.com/aquasecurity/trivy/pkg/iac/terraform"
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/ext/typeexpr"
@@ -102,15 +104,15 @@ func evaluateCoderParameterDefault(b *terraform.Block) (cty.Value, hcl.Diagnosti
 
 	var valType cty.Type
 	var defaults *typeexpr.Defaults
-	// TODO: Disabling this because "string" keeps failing. Unsure why
+	// TODO: `"string"` fails, it should be `string`
 	typeAttr, exists := attributes["type"]
-	if exists && false {
+	if exists {
 		ty, def, err := typeAttr.DecodeVarType()
 		if err != nil {
 			return cty.NilVal, hcl.Diagnostics{
 				{
 					Severity:    hcl.DiagWarning,
-					Summary:     "Decoding parameter type",
+					Summary:     fmt.Sprintf("Decoding parameter type for %q", b.FullName()),
 					Detail:      err.Error(),
 					Subject:     &typeAttr.HCLAttribute().Range,
 					Context:     &b.HCLBlock().DefRange,
@@ -121,11 +123,15 @@ func evaluateCoderParameterDefault(b *terraform.Block) (cty.Value, hcl.Diagnosti
 		}
 		valType = ty
 		defaults = def
+	} else {
+		// Default to string type
+		valType = cty.String
 	}
 
 	var val cty.Value
 
-	if def, exists := attributes["default"]; exists {
+	def, exists := attributes["default"]
+	if exists {
 		val = def.NullableValue()
 	} else {
 		return cty.NilVal, nil
@@ -143,9 +149,9 @@ func evaluateCoderParameterDefault(b *terraform.Block) (cty.Value, hcl.Diagnosti
 					Severity:    hcl.DiagWarning,
 					Summary:     "Converting default parameter value type",
 					Detail:      err.Error(),
-					Subject:     &typeAttr.HCLAttribute().Range,
+					Subject:     &def.HCLAttribute().Range,
 					Context:     &b.HCLBlock().DefRange,
-					Expression:  typeAttr.HCLAttribute().Expr,
+					Expression:  def.HCLAttribute().Expr,
 					EvalContext: b.Context().Inner(),
 				},
 			}

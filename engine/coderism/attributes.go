@@ -87,7 +87,7 @@ func (a *expectedAttribute) expectedTypeError(attr *terraform.Attribute, expecte
 	a.error(hcl.Diagnostic{
 		Severity:   hcl.DiagError,
 		Summary:    "Invalid attribute type",
-		Detail:     fmt.Sprintf("The attribute %q must be of type %q, found type %q", expectedType, attr.Type().FriendlyNameForConstraint()),
+		Detail:     fmt.Sprintf("The attribute %q must be of type %q, found type %q", attr.Name(), expectedType, attr.Type().FriendlyNameForConstraint()),
 		Subject:    &attr.HCLAttribute().Range,
 		Context:    &a.p.block.HCLBlock().DefRange,
 		Expression: attr.HCLAttribute().Expr,

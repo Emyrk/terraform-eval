@@ -7,6 +7,8 @@ import (
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/hclsyntax"
 	"github.com/zclconf/go-cty/cty"
+
+	"github.com/coder/terraform-eval/engine/hclext"
 )
 
 func WorkspaceTags(modules terraform.Modules) (TagBlocks, hcl.Diagnostics) {
@@ -53,9 +55,12 @@ func WorkspaceTags(modules terraform.Modules) (TagBlocks, hcl.Diagnostics) {
 				diags = diags.Extend(kdiags)
 				diags = diags.Extend(vdiags)
 
-				if kdiags.HasErrors() || vdiags.HasErrors() {
-					// Tag cannot be eval'd
-					continue
+				if kdiags.HasErrors() {
+					key = cty.UnknownVal(cty.String)
+				}
+
+				if vdiags.HasErrors() {
+					val = cty.UnknownVal(cty.NilType)
 				}
 
 				tags = append(tags, Tag{
@@ -121,34 +126,13 @@ func (t TagBlock) ValidTags() (map[string]string, hcl.Diagnostics) {
 			continue
 		}
 
-		keyStr, err := CtyValueString(tag.key)
-		if err != nil {
-			r := tag.keyExpr.Range()
-			diags = diags.Append(&hcl.Diagnostic{
-				Severity:    hcl.DiagError,
-				Summary:     "Tag key is not known",
-				Detail:      "Tag must be resolvable",
-				Subject:     &r,
-				Expression:  tag.keyExpr,
-				EvalContext: t.block.Context().Inner(),
-			})
+		k, v, eDiags := tag.EvalToString(t)
+		diags = diags.Extend(eDiags)
+		if diags.HasErrors() {
 			continue
 		}
 
-		valStr, err := CtyValueString(tag.val)
-		if err != nil {
-			r := tag.valueExpr.Range()
-			diags = diags.Append(&hcl.Diagnostic{
-				Severity:    hcl.DiagError,
-				Summary:     "Tag value is not known",
-				Detail:      "Tag must be resolvable",
-				Subject:     &r,
-				Expression:  tag.valueExpr,
-				EvalContext: t.block.Context().Inner(),
-			})
-			continue
-		}
-		known[keyStr] = valStr
+		known[k] = v
 	}
 
 	return known, diags
@@ -184,4 +168,56 @@ type Tag struct {
 
 	val       cty.Value
 	valueExpr hclsyntax.Expression
+}
+
+func (tag Tag) IsKnown() bool {
+	return tag.key.IsWhollyKnown() && tag.val.IsWhollyKnown()
+}
+
+func (tag Tag) References() []string {
+	keyVars := hclext.ReferenceNames(tag.keyExpr)
+	valVars := hclext.ReferenceNames(tag.valueExpr)
+	return append(keyVars, valVars...)
+}
+
+// TODO: I dislike this
+func (tag Tag) SafeKeyString() (str string) {
+	defer func() {
+		if r := recover(); r != nil {
+		}
+	}()
+	var err error
+	str, err = CtyValueString(tag.key)
+	fmt.Println("SSs", err, str)
+	return str
+}
+
+func (tag Tag) EvalToString(tb TagBlock) (string, string, hcl.Diagnostics) {
+	var diags hcl.Diagnostics
+	keyStr, err := CtyValueString(tag.key)
+	if err != nil {
+		r := tag.keyExpr.Range()
+		diags = diags.Append(&hcl.Diagnostic{
+			Severity:    hcl.DiagError,
+			Summary:     "Tag key is not known",
+			Detail:      "Tag must be resolvable",
+			Subject:     &r,
+			Expression:  tag.keyExpr,
+			EvalContext: tb.block.Context().Inner(),
+		})
+	}
+
+	valStr, err := CtyValueString(tag.val)
+	if err != nil {
+		r := tag.valueExpr.Range()
+		diags = diags.Append(&hcl.Diagnostic{
+			Severity:    hcl.DiagError,
+			Summary:     "Tag value is not known",
+			Detail:      "Tag must be resolvable",
+			Subject:     &r,
+			Expression:  tag.valueExpr,
+			EvalContext: tb.block.Context().Inner(),
+		})
+	}
+	return keyStr, valStr, diags
 }
