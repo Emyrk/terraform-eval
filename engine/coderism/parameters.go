@@ -55,7 +55,7 @@ func RichParameters(modules terraform.Modules) ([]Parameter, error) {
 				Value: paramValue,
 				Data: &proto.RichParameter{
 					Name:                p.attr("name").required().string(),
-					Description:         p.attr("description").required().string(),
+					Description:         p.attr("description").string(),
 					Type:                "",
 					Mutable:             p.attr("mutable").bool(),
 					DefaultValue:        "",

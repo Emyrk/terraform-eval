@@ -38,12 +38,12 @@ func Extract(modules terraform.Modules, input Input) (Output, error) {
 
 	tags, err := WorkspaceTags(modules)
 	if err != nil {
-		return Output{}, err
+		return Output{}, fmt.Errorf("tags: %w", err)
 	}
 
 	params, err := RichParameters(modules)
 	if err != nil {
-		return Output{}, err
+		return Output{}, fmt.Errorf("params: %w", err)
 	}
 
 	return Output{
