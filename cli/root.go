@@ -66,22 +66,22 @@ func (r *RootCmd) Root() *serpent.Command {
 			}
 
 			// TODO: Implement the parameter cli resolver in this package
-			output, err := coderism.Extract(modules, coderism.Input{
+			output, diags := coderism.Extract(modules, coderism.Input{
 				ParameterValues: rvars,
 			})
-			if err != nil {
-				return fmt.Errorf("extract: %w", err)
+
+			if len(diags) > 0 {
+				_, _ = fmt.Fprintf(os.Stderr, "Parsing Diagnostics:\n")
+				clidisplay.WriteDiagnostics(os.Stderr, psr, diags)
 			}
 
-			err = clidisplay.WorkspaceTags(os.Stdout, output.WorkspaceTags)
-			if err != nil {
-				return fmt.Errorf("display params: %w", err)
+			diags = clidisplay.WorkspaceTags(os.Stdout, output.WorkspaceTags)
+			if len(diags) > 0 {
+				_, _ = fmt.Fprintf(os.Stderr, "Workspace Tags Diagnostics:\n")
+				clidisplay.WriteDiagnostics(os.Stderr, psr, diags)
 			}
 
-			err = clidisplay.Parameters(os.Stdout, output.Parameters)
-			if err != nil {
-				return fmt.Errorf("display params: %w", err)
-			}
+			clidisplay.Parameters(os.Stdout, output.Parameters)
 
 			return nil
 		},

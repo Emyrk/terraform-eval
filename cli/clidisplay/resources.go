@@ -5,13 +5,17 @@ import (
 	"io"
 	"strings"
 
+	"github.com/hashicorp/hcl/v2"
+
 	"github.com/coder/terraform-eval/engine/coderism"
 	"github.com/coder/terraform-eval/engine/coderism/proto"
 
 	"github.com/jedib0t/go-pretty/v6/table"
 )
 
-func WorkspaceTags(writer io.Writer, tags coderism.TagBlocks) error {
+func WorkspaceTags(writer io.Writer, tags coderism.TagBlocks) hcl.Diagnostics {
+	var diags hcl.Diagnostics
+
 	tableWriter := table.NewWriter()
 	tableWriter.SetTitle("Provisioner Tags")
 	tableWriter.SetStyle(table.StyleLight)
@@ -19,9 +23,10 @@ func WorkspaceTags(writer io.Writer, tags coderism.TagBlocks) error {
 	row := table.Row{"Key", "Value", "Refs"}
 	tableWriter.AppendHeader(row)
 	for _, tb := range tags {
-		valid, err := tb.ValidTags()
-		if err != nil {
-			return fmt.Errorf("valid tags: %w", err)
+		valid, tagDiags := tb.ValidTags()
+		diags = diags.Extend(tagDiags)
+		if diags.HasErrors() {
+			continue
 		}
 		for k, v := range valid {
 			tableWriter.AppendRow(table.Row{k, v, ""})
@@ -36,11 +41,11 @@ func WorkspaceTags(writer io.Writer, tags coderism.TagBlocks) error {
 			tableWriter.AppendRow(table.Row{unknown, "???", strings.Join(refsStr, "\n")})
 		}
 	}
-	_, err := fmt.Fprintln(writer, tableWriter.Render())
-	return err
+	_, _ = fmt.Fprintln(writer, tableWriter.Render())
+	return diags
 }
 
-func Parameters(writer io.Writer, params []coderism.Parameter) error {
+func Parameters(writer io.Writer, params []coderism.Parameter) {
 	tableWriter := table.NewWriter()
 	//tableWriter.SetTitle("Parameters")
 	tableWriter.SetStyle(table.StyleLight)
@@ -49,12 +54,19 @@ func Parameters(writer io.Writer, params []coderism.Parameter) error {
 	tableWriter.AppendHeader(row)
 	for _, p := range params {
 		v, _ := p.ValueAsString()
+		if p.Value.Value.IsNull() {
+			v = "null"
+		}
+		if !p.Value.Value.IsKnown() {
+			v = "unknown"
+		}
+
 		tableWriter.AppendRow(table.Row{
 			fmt.Sprintf("%s\n%s", p.Data.Name, formatOptions(v, p.Data.Options)),
 		})
+		tableWriter.AppendSeparator()
 	}
-	_, err := fmt.Fprintln(writer, tableWriter.Render())
-	return err
+	_, _ = fmt.Fprintln(writer, tableWriter.Render())
 }
 
 func formatOptions(selected string, options []*proto.RichParameterOption) string {
@@ -76,7 +88,7 @@ func formatOptions(selected string, options []*proto.RichParameterOption) string
 	}
 	if !found {
 		str.WriteString(sep)
-		str.WriteString(fmt.Sprintf("[X] %s", selected))
+		str.WriteString(fmt.Sprintf("= %s", selected))
 	}
 	return str.String()
 }

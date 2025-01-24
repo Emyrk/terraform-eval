@@ -1,10 +1,8 @@
 package coderism
 
 import (
-	"errors"
-	"fmt"
-
 	"github.com/aquasecurity/trivy/pkg/iac/terraform"
+	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/ext/typeexpr"
 	"github.com/zclconf/go-cty/cty"
 	"github.com/zclconf/go-cty/cty/convert"
@@ -30,23 +28,15 @@ type Output struct {
 	Parameters    []Parameter
 }
 
-func Extract(modules terraform.Modules, input Input) (Output, error) {
-	err := ParameterContexts(modules, input)
-	if err != nil {
-		return Output{}, fmt.Errorf("parameter ctx: %w", err)
-	}
-
+func Extract(modules terraform.Modules, input Input) (Output, hcl.Diagnostics) {
+	pcDiags := ParameterContexts(modules, input)
 	tags, tagDiags := WorkspaceTags(modules)
 	params, rpDiags := RichParameters(modules)
-
-	if tagDiags.HasErrors() || rpDiags.HasErrors() {
-		return Output{}, tagDiags.Extend(rpDiags)
-	}
 
 	return Output{
 		WorkspaceTags: tags,
 		Parameters:    params,
-	}, nil
+	}, tagDiags.Extend(rpDiags).Extend(pcDiags)
 }
 
 // ParameterContexts handles applying coder parameters to the evaluation context.
@@ -56,7 +46,8 @@ func Extract(modules terraform.Modules, input Input) (Output, error) {
 // Parameter values first come from the inputs, and then the 'defaults'.
 // TODO: This should be done in the evaluateStep in a loop, but that would
 // require forking. This might need to be done in a loop??
-func ParameterContexts(modules terraform.Modules, input Input) error {
+func ParameterContexts(modules terraform.Modules, input Input) hcl.Diagnostics {
+	var diags hcl.Diagnostics
 	for _, module := range modules {
 		parameterBlocks := module.GetDatasByType("coder_parameter")
 		for _, block := range parameterBlocks {
@@ -67,7 +58,7 @@ func ParameterContexts(modules terraform.Modules, input Input) error {
 			}
 
 			name := block.NameLabel()
-			var err error
+			var defDiags hcl.Diagnostics
 			var value cty.Value
 			pv, ok := input.RichParameterValue(name)
 			if ok {
@@ -75,10 +66,8 @@ func ParameterContexts(modules terraform.Modules, input Input) error {
 				value = cty.StringVal(pv.Value)
 			} else {
 				// get the default value
-				value, err = evaluateCoderParameterDefault(block)
-				if err != nil {
-					continue
-				}
+				value, defDiags = evaluateCoderParameterDefault(block)
+				diags = diags.Extend(defDiags)
 			}
 
 			// Set the default value as the 'value' attribute
@@ -90,26 +79,45 @@ func ParameterContexts(modules terraform.Modules, input Input) error {
 			block.Context().Parent().Set(value, path...)
 		}
 	}
-	return nil
+	return diags
 }
 
-func evaluateCoderParameterDefault(b *terraform.Block) (cty.Value, error) {
-	if b.Label() == "" {
-		return cty.NilVal, errors.New("empty label - cannot resolve")
-	}
+func evaluateCoderParameterDefault(b *terraform.Block) (cty.Value, hcl.Diagnostics) {
+	//if b.Label() == "" {
+	//	return cty.NilVal,  errors.New("empty label - cannot resolve")
+	//}
 
 	attributes := b.Attributes()
 	if attributes == nil {
-		return cty.NilVal, errors.New("cannot resolve variable with no attributes")
+		r := b.HCLBlock().Body.MissingItemRange()
+		return cty.NilVal, hcl.Diagnostics{
+			{
+				Severity: hcl.DiagWarning,
+				Summary:  "'coder_parameter' block has no attributes",
+				Detail:   "No default value will be set for this paramete",
+				Subject:  &r,
+			},
+		}
 	}
 
 	var valType cty.Type
 	var defaults *typeexpr.Defaults
 	// TODO: Disabling this because "string" keeps failing. Unsure why
-	if typeAttr, exists := attributes["type"]; exists && false {
+	typeAttr, exists := attributes["type"]
+	if exists && false {
 		ty, def, err := typeAttr.DecodeVarType()
 		if err != nil {
-			return cty.NilVal, err
+			return cty.NilVal, hcl.Diagnostics{
+				{
+					Severity:    hcl.DiagWarning,
+					Summary:     "Decoding parameter type",
+					Detail:      err.Error(),
+					Subject:     &typeAttr.HCLAttribute().Range,
+					Context:     &b.HCLBlock().DefRange,
+					Expression:  typeAttr.HCLAttribute().Expr,
+					EvalContext: b.Context().Inner(),
+				},
+			}
 		}
 		valType = ty
 		defaults = def
@@ -120,7 +128,7 @@ func evaluateCoderParameterDefault(b *terraform.Block) (cty.Value, error) {
 	if def, exists := attributes["default"]; exists {
 		val = def.NullableValue()
 	} else {
-		return cty.NilVal, errors.New("no value found")
+		return cty.NilVal, nil
 	}
 
 	if valType != cty.NilType {
@@ -130,7 +138,17 @@ func evaluateCoderParameterDefault(b *terraform.Block) (cty.Value, error) {
 
 		typedVal, err := convert.Convert(val, valType)
 		if err != nil {
-			return cty.NilVal, err
+			return cty.NilVal, hcl.Diagnostics{
+				{
+					Severity:    hcl.DiagWarning,
+					Summary:     "Converting default parameter value type",
+					Detail:      err.Error(),
+					Subject:     &typeAttr.HCLAttribute().Range,
+					Context:     &b.HCLBlock().DefRange,
+					Expression:  typeAttr.HCLAttribute().Expr,
+					EvalContext: b.Context().Inner(),
+				},
+			}
 		}
 		return typedVal, nil
 	}
