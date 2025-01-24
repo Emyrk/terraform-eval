@@ -1,6 +1,7 @@
 package engine_test
 
 import (
+	"context"
 	"embed"
 	"fmt"
 	"io/fs"
@@ -30,7 +31,8 @@ func TestParseTF(t *testing.T) {
 		require.NoError(t, err)
 
 		t.Run(entry.Name(), func(t *testing.T) {
-			modules, _, err := engine.ParseTerraform(dir)
+			ctx := context.Background()
+			modules, _, err := engine.ParseTerraform(ctx, dir)
 			require.NoError(t, err)
 
 			output, err := coderism.Extract(modules, coderism.Input{})

@@ -1,22 +1,22 @@
 package coderism
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/aquasecurity/trivy/pkg/iac/terraform"
+	"github.com/hashicorp/hcl/v2"
 	"github.com/zclconf/go-cty/cty"
 )
 
 type attributeParser struct {
-	block  *terraform.Block
-	errors []error
+	block *terraform.Block
+	diags hcl.Diagnostics
 }
 
 func newAttributeParser(block *terraform.Block) *attributeParser {
 	return &attributeParser{
-		block:  block,
-		errors: make([]error, 0),
+		block: block,
+		diags: make(hcl.Diagnostics, 0),
 	}
 }
 
@@ -27,32 +27,34 @@ func (a *attributeParser) attr(key string) *expectedAttribute {
 	}
 }
 
-func (a *attributeParser) error() error {
-	if len(a.errors) == 0 {
-		return nil
-	}
-	return errors.Join(a.errors...)
-}
-
 type expectedAttribute struct {
-	err error
-	key string
+	diag *hcl.Diagnostic
+	key  string
 
 	p *attributeParser
 }
 
-func (a *expectedAttribute) error(err error) *expectedAttribute {
-	if a.err != nil {
+func (a *expectedAttribute) error(diag hcl.Diagnostic) *expectedAttribute {
+	if a.diag != nil {
 		return a // already have an error, don't overwrite
 	}
-	a.p.errors = append(a.p.errors, err)
-	a.err = err
+
+	a.p.diags = a.p.diags.Append(&diag)
+	a.diag = &diag
 	return a
 }
 
 func (a *expectedAttribute) required() *expectedAttribute {
 	if a.p.block.GetAttribute(a.key).IsNil() {
-		a.error(fmt.Errorf(`%q attribute is required and missing for %s`, a.key, a.p.block.Label()))
+		r := a.p.block.HCLBlock().Body.MissingItemRange()
+		a.error(hcl.Diagnostic{
+			Severity:    hcl.DiagError,
+			Summary:     "Missing required argument",
+			Detail:      fmt.Sprintf("The argument %q is required, but no definition is found.", a.key),
+			Subject:     &r,
+			Expression:  nil,
+			EvalContext: a.p.block.Context().Inner(),
+		})
 	}
 	return a
 }
@@ -63,7 +65,8 @@ func (a *expectedAttribute) string() string {
 		return ""
 	}
 	if attr.Type() != cty.String {
-		a.error(a.expectedTypeError(a.key, "bool"))
+		a.expectedTypeError(attr, "string")
+		return ""
 	}
 	return attr.Value().AsString()
 }
@@ -74,11 +77,21 @@ func (a *expectedAttribute) bool() bool {
 		return false
 	}
 	if attr.Type() != cty.Bool {
-		a.error(a.expectedTypeError(a.key, "bool"))
+		a.expectedTypeError(attr, "bool")
+		return false
 	}
 	return attr.Value().True()
 }
 
-func (a *expectedAttribute) expectedTypeError(key string, expectedType string) error {
-	return fmt.Errorf(`%q attribute must be of type %s for %s`, key, expectedType, a.p.block.Label())
+func (a *expectedAttribute) expectedTypeError(attr *terraform.Attribute, expectedType string) {
+	a.error(hcl.Diagnostic{
+		Severity:   hcl.DiagError,
+		Summary:    "Invalid attribute type",
+		Detail:     fmt.Sprintf("The attribute %q must be of type %q, found type %q", expectedType, attr.Type().FriendlyNameForConstraint()),
+		Subject:    &attr.HCLAttribute().Range,
+		Context:    &a.p.block.HCLBlock().DefRange,
+		Expression: attr.HCLAttribute().Expr,
+
+		EvalContext: a.p.block.Context().Inner(),
+	})
 }

@@ -109,4 +109,6 @@ require (
 )
 
 // https://github.com/aquasecurity/trivy/pull/8271
-replace github.com/aquasecurity/trivy => github.com/Emyrk/trivy v0.0.0-20250122192431-11c2a0243d63
+//replace github.com/aquasecurity/trivy => github.com/Emyrk/trivy v0.0.0-20250122192431-11c2a0243d63
+
+replace github.com/aquasecurity/trivy => /home/steven/go/src/github.com/aquasecurity/trivy

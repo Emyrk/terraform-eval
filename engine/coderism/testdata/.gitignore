@@ -1,2 +1,4 @@
 */.terraform*
 */terraform.tfstate
+*/out.plan
+*/plan.json

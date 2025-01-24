@@ -15,7 +15,7 @@ terraform {
 data "coder_workspace_tags" "custom_workspace_tags" {
   tags = {
     "foo" = docker_image.ubuntu.repo_digest
-    "bar" = docker_image.centos.repo_digest
+    # "bar" = docker_image.centos.repo_digest
     "qux" = "quux"
   }
 }
@@ -28,5 +28,10 @@ resource "docker_image" "ubuntu" {
 
 resource "docker_image" "centos" {
   name = "centos:latest"
+}
+
+data "docker_registry_image" "ubuntu" {
+  name = "ubuntu:precise"
+  // sha256_digest
 }
 

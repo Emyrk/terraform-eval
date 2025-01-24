@@ -5,6 +5,8 @@ import (
 	"os"
 	"strings"
 
+	"github.com/aquasecurity/trivy/pkg/iac/scanners/terraform/parser"
+
 	"github.com/coder/serpent"
 	"github.com/coder/terraform-eval/cli/clidisplay"
 	"github.com/coder/terraform-eval/engine"
@@ -12,7 +14,11 @@ import (
 	"github.com/coder/terraform-eval/engine/coderism/proto"
 )
 
-func Root() *serpent.Command {
+type RootCmd struct {
+	Parser *parser.Parser
+}
+
+func (r *RootCmd) Root() *serpent.Command {
 	var (
 		dir  string
 		vars []string
@@ -41,10 +47,11 @@ func Root() *serpent.Command {
 		Handler: func(i *serpent.Invocation) error {
 			dfs := os.DirFS(dir)
 
-			modules, _, err := engine.ParseTerraform(dfs)
+			psr, modules, _, err := engine.ParseTerraform(i.Context(), dfs)
 			if err != nil {
 				return fmt.Errorf("parse tf: %w", err)
 			}
+			r.Parser = psr
 
 			var rvars []*proto.RichParameterValue
 			for _, val := range vars {

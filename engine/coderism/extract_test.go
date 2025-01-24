@@ -1,6 +1,7 @@
 package coderism_test
 
 import (
+	"context"
 	"embed"
 	"io/fs"
 	"path/filepath"
@@ -119,7 +120,7 @@ func Test_Extract(t *testing.T) {
 			dirFs, err := fs.Sub(testdata, filepath.Join("testdata", tc.dir))
 			require.NoError(t, err)
 
-			modules, _, err := engine.ParseTerraform(dirFs)
+			modules, _, err := engine.ParseTerraform(context.Background(), dirFs)
 			require.NoError(t, err)
 
 			if tc.showJSON != "" {

@@ -36,14 +36,11 @@ func Extract(modules terraform.Modules, input Input) (Output, error) {
 		return Output{}, fmt.Errorf("parameter ctx: %w", err)
 	}
 
-	tags, err := WorkspaceTags(modules)
-	if err != nil {
-		return Output{}, fmt.Errorf("tags: %w", err)
-	}
+	tags, tagDiags := WorkspaceTags(modules)
+	params, rpDiags := RichParameters(modules)
 
-	params, err := RichParameters(modules)
-	if err != nil {
-		return Output{}, fmt.Errorf("params: %w", err)
+	if tagDiags.HasErrors() || rpDiags.HasErrors() {
+		return Output{}, tagDiags.Extend(rpDiags)
 	}
 
 	return Output{
