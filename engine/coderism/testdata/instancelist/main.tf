@@ -28,7 +28,7 @@ data "coder_parameter" "user_location" {
 
 variable "regions" {
   type = list(string)
-  default = ["us-east-1", "us-west-2", "us-west-1", "eu-south-1"]
+  default = ["us-east-1", "us-west-2", "us-west-1", "eu-south-1", "eu-west-1"]
 }
 
 locals {
