@@ -10,6 +10,7 @@ import (
 	"github.com/zclconf/go-cty/cty/convert"
 
 	"github.com/coder/terraform-eval/engine/coderism/proto"
+	"github.com/coder/terraform-eval/engine/hclext"
 )
 
 type Input struct {
@@ -107,7 +108,7 @@ func evaluateCoderParameterDefault(b *terraform.Block) (cty.Value, hcl.Diagnosti
 	// TODO: `"string"` fails, it should be `string`
 	typeAttr, exists := attributes["type"]
 	if exists {
-		ty, def, err := typeAttr.DecodeVarType()
+		ty, def, err := hclext.DecodeVarType(typeAttr.HCLAttribute().Expr)
 		if err != nil {
 			return cty.NilVal, hcl.Diagnostics{
 				{

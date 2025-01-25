@@ -128,8 +128,11 @@ func Test_Extract(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			output, err := coderism.Extract(modules, tc.input)
-			require.NoError(t, err)
+			output, diags := coderism.Extract(modules, tc.input)
+			assert.False(t, diags.HasErrors())
+			if diags.HasErrors() {
+				t.Log(diags.Error())
+			}
 
 			// Assert tags
 			validTags, err := output.WorkspaceTags.ValidTags()
@@ -176,7 +179,7 @@ func (a *assertParam[T]) options(opts ...string) *assertParam[T] {
 func (a *assertParam[T]) value(v T) *assertParam[T] {
 	cpy := *a
 	x := assertParam[T](func(t *testing.T, parameter coderism.Parameter) {
-		assert.Equal(t, v, parameter.Value)
+		assert.Equal(t, v, parameter.Value.Value)
 		cpy(t, parameter)
 	})
 	return &x

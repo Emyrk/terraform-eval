@@ -186,9 +186,7 @@ func (tag Tag) SafeKeyString() (str string) {
 		if r := recover(); r != nil {
 		}
 	}()
-	var err error
-	str, err = CtyValueString(tag.key)
-	fmt.Println("SSs", err, str)
+	str, _ = CtyValueString(tag.key)
 	return str
 }
 
