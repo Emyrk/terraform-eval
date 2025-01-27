@@ -14,8 +14,8 @@ terraform {
 
 data "coder_workspace_tags" "custom_workspace_tags" {
   tags = {
-    "foo" = docker_image.ubuntu.repo_digest
-    # "bar" = docker_image.centos.repo_digest
+    "foo" = try(docker_image.ubuntu.repo_digest, "default-value")
+    "bar" = docker_image.centos.repo_digest
     "qux" = "quux"
   }
 }
