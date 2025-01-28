@@ -12,7 +12,7 @@ import (
 type Parameter struct {
 	Data  *proto.RichParameter
 	Value ParameterValue
-	block *terraform.Block
+	Block *terraform.Block
 }
 
 type ParameterValue struct {
@@ -74,7 +74,7 @@ func RichParameters(modules terraform.Modules) ([]Parameter, hcl.Diagnostics) {
 					Order:               0,
 					Ephemeral:           false,
 				},
-				block: block,
+				Block: block,
 			}
 			rpDiags = rpDiags.Extend(p.diags)
 			if p.diags.HasErrors() {

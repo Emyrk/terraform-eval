@@ -32,7 +32,7 @@ func TestParseTF(t *testing.T) {
 
 		t.Run(entry.Name(), func(t *testing.T) {
 			ctx := context.Background()
-			_, modules, _, err := engine.ParseTerraform(ctx, dir)
+			_, modules, _, err := engine.ParseTerraform(ctx, coderism.Input{}, dir)
 			require.NoError(t, err)
 
 			output, err := coderism.Extract(modules, coderism.Input{})

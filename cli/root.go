@@ -6,12 +6,15 @@ import (
 	"strings"
 
 	"github.com/aquasecurity/trivy/pkg/iac/scanners/terraform/parser"
+	"github.com/hashicorp/hcl/v2"
+	"github.com/hashicorp/hcl/v2/hclsyntax"
 
 	"github.com/coder/serpent"
 	"github.com/coder/terraform-eval/cli/clidisplay"
 	"github.com/coder/terraform-eval/engine"
 	"github.com/coder/terraform-eval/engine/coderism"
 	"github.com/coder/terraform-eval/engine/coderism/proto"
+	"github.com/coder/terraform-eval/lintengine"
 )
 
 type RootCmd struct {
@@ -72,6 +75,27 @@ func (r *RootCmd) Root() *serpent.Command {
 			// TODO: Implement the parameter cli resolver in this package
 			output, diags := coderism.Extract(modules, input)
 
+			if len(i.Args) > 0 {
+				eval, _, ptDiags := lintengine.ParseTerraform(i.Context(), input, dfs)
+				if ptDiags.HasErrors() {
+					return fmt.Errorf("parse lint: %w", ptDiags)
+				}
+
+				var _ = eval
+				//for _, arg := range i.Args {
+				//	fmt.Printf("Evaluating: %s\n", arg)
+				//	v, vdiags := eval.EvaluateExpr(hclExpr(arg), cty.String)
+				//	if vdiags.HasErrors() {
+				//		fmt.Println(vdiags.Error())
+				//		continue
+				//	}
+				//	fmt.Printf("Evaluated: %s\n", v.AsString())
+				//}
+				//for _, param := range output.Parameters {
+
+				//}
+			}
+
 			if len(diags) > 0 {
 				_, _ = fmt.Fprintf(os.Stderr, "Parsing Diagnostics:\n")
 				clidisplay.WriteDiagnostics(os.Stderr, psr, diags)
@@ -89,4 +113,16 @@ func (r *RootCmd) Root() *serpent.Command {
 		},
 	}
 	return cmd
+}
+
+func hclExpr(expr string) hcl.Expression {
+	file, diags := hclsyntax.ParseConfig([]byte(fmt.Sprintf(`expr = %s`, expr)), "test.tf", hcl.InitialPos)
+	if diags.HasErrors() {
+		panic(diags)
+	}
+	attributes, diags := file.Body.JustAttributes()
+	if diags.HasErrors() {
+		panic(diags)
+	}
+	return attributes["expr"].Expr
 }
