@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/aquasecurity/trivy/pkg/iac/terraform"
+	tfcontext "github.com/aquasecurity/trivy/pkg/iac/terraform/context"
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/ext/typeexpr"
 	"github.com/zclconf/go-cty/cty"
@@ -32,14 +33,51 @@ type Output struct {
 }
 
 func Extract(modules terraform.Modules, input Input) (Output, hcl.Diagnostics) {
-	pcDiags := ParameterContexts(modules, input)
+	//pcDiags := ParameterContexts(modules, input)
 	tags, tagDiags := WorkspaceTags(modules)
 	params, rpDiags := RichParameters(modules)
 
 	return Output{
 		WorkspaceTags: tags,
 		Parameters:    params,
-	}, tagDiags.Extend(rpDiags).Extend(pcDiags)
+	}, tagDiags.Extend(rpDiags)
+}
+
+func ParameterContextsEvalHook(input Input, diags hcl.Diagnostics) func(ctx *tfcontext.Context, blocks terraform.Blocks, inputVars map[string]cty.Value) {
+	return func(ctx *tfcontext.Context, blocks terraform.Blocks, inputVars map[string]cty.Value) {
+		data := blocks.OfType("data")
+		for _, block := range data {
+			if block.TypeLabel() != "coder_parameter" {
+				continue
+			}
+
+			if !block.GetAttribute("value").IsNil() {
+				continue // Wow a value exists?!. This feels like a bug.
+			}
+
+			name := block.NameLabel()
+			var defDiags hcl.Diagnostics
+			var value cty.Value
+			pv, ok := input.RichParameterValue(name)
+			if ok {
+				// TODO: Handle non-string types
+				value = cty.StringVal(pv.Value)
+			} else {
+				// get the default value
+				value, defDiags = evaluateCoderParameterDefault(block)
+				diags = diags.Extend(defDiags)
+			}
+
+			// Set the default value as the 'value' attribute
+			path := []string{"data"}
+			path = append(path, block.Labels()...)
+			path = append(path, "value")
+			// The current context is in the `coder_parameter` block.
+			// Use the parent context to "export" the value
+			ctx.Set(value, path...)
+			//block.Context().Parent().Set(value, path...)
+		}
+	}
 }
 
 // ParameterContexts handles applying coder parameters to the evaluation context.
@@ -82,6 +120,22 @@ func ParameterContexts(modules terraform.Modules, input Input) hcl.Diagnostics {
 			block.Context().Parent().Set(value, path...)
 		}
 	}
+
+	//for _, module := range modules {
+	//	parameterBlocks := module.GetDatasByType("coder_parameter")
+	//	for _, block := range parameterBlocks {
+	//		err := block.ExpandBlock()
+	//		if err != nil {
+	//			diags = append(diags, &hcl.Diagnostic{
+	//				Severity: hcl.DiagWarning,
+	//				Summary:  "Failed to expand coder_parameter block",
+	//				Detail:   err.Error(),
+	//				Subject:  &block.HCLBlock().DefRange,
+	//			})
+	//			continue
+	//		}
+	//	}
+	//}
 	return diags
 }
 

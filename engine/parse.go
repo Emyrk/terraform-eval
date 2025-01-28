@@ -8,19 +8,25 @@ import (
 
 	"github.com/aquasecurity/trivy/pkg/iac/scanners/terraform/parser"
 	"github.com/aquasecurity/trivy/pkg/iac/terraform"
+	"github.com/hashicorp/hcl/v2"
 	"github.com/zclconf/go-cty/cty"
+
+	"github.com/coder/terraform-eval/engine/coderism"
 )
 
-func ParseTerraform(ctx context.Context, dir fs.FS) (*parser.Parser, terraform.Modules, cty.Value, error) {
+func ParseTerraform(ctx context.Context, input coderism.Input, dir fs.FS) (*parser.Parser, terraform.Modules, cty.Value, error) {
 	varFiles, err := tfVarFiles("", dir)
 	if err != nil {
 		return nil, nil, cty.NilVal, fmt.Errorf("find tfvars files: %w", err)
 	}
 
+	diags := make(hcl.Diagnostics, 0)
+	hook := coderism.ParameterContextsEvalHook(input, diags)
 	// moduleSource is "" for a local module
 	p := parser.New(dir, "",
 		parser.OptionWithDownloads(false),
 		parser.OptionWithTFVarsPaths(varFiles...),
+		parser.OptionWithEvalHook(hook),
 	)
 
 	err = p.ParseFS(ctx, ".")

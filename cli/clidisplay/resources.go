@@ -66,7 +66,7 @@ func Parameters(writer io.Writer, params []coderism.Parameter) {
 		}
 
 		tableWriter.AppendRow(table.Row{
-			fmt.Sprintf("%s\n%s", p.Data.Name, formatOptions(v, p.Data.Options)),
+			fmt.Sprintf("%s: %s\n%s", p.Data.Name, p.Data.Description, formatOptions(v, p.Data.Options)),
 		})
 		tableWriter.AppendSeparator()
 	}

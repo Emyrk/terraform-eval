@@ -47,12 +47,6 @@ func (r *RootCmd) Root() *serpent.Command {
 		Handler: func(i *serpent.Invocation) error {
 			dfs := os.DirFS(dir)
 
-			psr, modules, _, err := engine.ParseTerraform(i.Context(), dfs)
-			if err != nil {
-				return fmt.Errorf("parse tf: %w", err)
-			}
-			r.Parser = psr
-
 			var rvars []*proto.RichParameterValue
 			for _, val := range vars {
 				parts := strings.Split(val, "=")
@@ -65,10 +59,18 @@ func (r *RootCmd) Root() *serpent.Command {
 				})
 			}
 
-			// TODO: Implement the parameter cli resolver in this package
-			output, diags := coderism.Extract(modules, coderism.Input{
+			input := coderism.Input{
 				ParameterValues: rvars,
-			})
+			}
+
+			psr, modules, _, err := engine.ParseTerraform(i.Context(), input, dfs)
+			if err != nil {
+				return fmt.Errorf("parse tf: %w", err)
+			}
+			r.Parser = psr
+
+			// TODO: Implement the parameter cli resolver in this package
+			output, diags := coderism.Extract(modules, input)
 
 			if len(diags) > 0 {
 				_, _ = fmt.Fprintf(os.Stderr, "Parsing Diagnostics:\n")

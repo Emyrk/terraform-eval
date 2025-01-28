@@ -3,6 +3,7 @@ package coderism_test
 import (
 	"context"
 	"embed"
+	"fmt"
 	"io/fs"
 	"path/filepath"
 	"testing"
@@ -41,6 +42,34 @@ func Test_Extract(t *testing.T) {
 			expUnknowns: []string{},
 			params: map[string]func(t *testing.T, parameter coderism.Parameter){
 				"Region": ap[cty.Value]().value(cty.StringVal("us")).f(),
+			},
+		},
+		{
+			name:        "conditional",
+			dir:         "conditional",
+			expTags:     map[string]string{},
+			expUnknowns: []string{},
+			params: map[string]func(t *testing.T, parameter coderism.Parameter){
+				"Compute": ap[cty.Value]().value(cty.StringVal("huge")).f(),
+				"Project": ap[cty.Value]().value(cty.StringVal("massive")).f(),
+			},
+		},
+		{
+			name: "conditional",
+			dir:  "conditional",
+			input: coderism.Input{
+				ParameterValues: []*proto.RichParameterValue{
+					{
+						Name:  "project",
+						Value: "small",
+					},
+				},
+			},
+			expTags:     map[string]string{},
+			expUnknowns: []string{},
+			params: map[string]func(t *testing.T, parameter coderism.Parameter){
+				"Compute": ap[cty.Value]().value(cty.StringVal("small")).f(),
+				"Project": ap[cty.Value]().value(cty.StringVal("small")).f(),
 			},
 		},
 		{
@@ -120,7 +149,7 @@ func Test_Extract(t *testing.T) {
 			dirFs, err := fs.Sub(testdata, filepath.Join("testdata", tc.dir))
 			require.NoError(t, err)
 
-			_, modules, _, err := engine.ParseTerraform(context.Background(), dirFs)
+			_, modules, _, err := engine.ParseTerraform(context.Background(), tc.input, dirFs)
 			require.NoError(t, err)
 
 			if tc.showJSON != "" {
@@ -179,7 +208,7 @@ func (a *assertParam[T]) options(opts ...string) *assertParam[T] {
 func (a *assertParam[T]) value(v T) *assertParam[T] {
 	cpy := *a
 	x := assertParam[T](func(t *testing.T, parameter coderism.Parameter) {
-		assert.Equal(t, v, parameter.Value.Value)
+		assert.Equal(t, v, parameter.Value.Value, fmt.Sprintf("param %q", parameter.Data.Name))
 		cpy(t, parameter)
 	})
 	return &x
